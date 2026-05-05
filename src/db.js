@@ -117,7 +117,20 @@ export async function initDB() {
   // Schema migrations — safe to run on existing DB
   await query(`ALTER TABLE public_reviews ALTER COLUMN approved SET DEFAULT true`);
   await query(`UPDATE public_reviews SET approved=true WHERE approved=false`);
+  // properties columns added after initial deploy
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS subtitle TEXT DEFAULT ''`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS description TEXT DEFAULT ''`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS price_suffix TEXT DEFAULT ''`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS beds INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS baths INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS sqm INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS location TEXT DEFAULT ''`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT ''`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'`);
   await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS property_videos JSONB DEFAULT '[]'`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT false`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`);
 
   console.log('✅ Database tables ready');
 }
