@@ -105,12 +105,8 @@ export async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
-    -- Migration: add columns if upgrading
-    DO $ BEGIN
-      BEGIN ALTER TABLE enquiries ADD COLUMN preferred_contact TEXT DEFAULT 'call'; EXCEPTION WHEN duplicate_column THEN NULL; END;
-      BEGIN ALTER TABLE enquiries ADD COLUMN source TEXT DEFAULT 'website'; EXCEPTION WHEN duplicate_column THEN NULL; END;
-      BEGIN ALTER TABLE enquiries ALTER COLUMN email DROP NOT NULL; EXCEPTION WHEN others THEN NULL; END;
-    END $;
+    ALTER TABLE enquiries ADD COLUMN IF NOT EXISTS preferred_contact TEXT DEFAULT 'call';
+    ALTER TABLE enquiries ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'website';
 
     CREATE TABLE IF NOT EXISTS page_visits (
       id SERIAL PRIMARY KEY,
