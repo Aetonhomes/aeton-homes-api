@@ -381,9 +381,91 @@ app.put('/api/enquiries/:id/status', verifyToken, async (req, res) => {
   }
 });
 
+app.put('/api/enquiries/:id/notes', verifyToken, async (req, res) => {
+  try {
+    const { admin_notes } = req.body;
+    const result = await query(
+      'UPDATE enquiries SET admin_notes=$1 WHERE id=$2 RETURNING *',
+      [admin_notes, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete('/api/enquiries/:id', verifyToken, async (req, res) => {
   try {
     await query('DELETE FROM enquiries WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Bookings ──────────────────────────────────────────────────────────────────
+app.post('/api/bookings', async (req, res) => {
+  try {
+    const {
+      property_title = '', property_id = null,
+      name, phone, email = '',
+      preferred_contact = 'call',
+      viewing_date = '', message = ''
+    } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    if (!phone) return res.status(400).json({ error: 'phone required' });
+    const result = await query(
+      `INSERT INTO bookings (property_title, property_id, name, phone, email, preferred_contact, viewing_date, message)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [property_title, property_id, name, phone, email, preferred_contact, viewing_date, message]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/bookings', verifyToken, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM bookings ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/bookings/:id/status', verifyToken, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const result = await query(
+      'UPDATE bookings SET status=$1 WHERE id=$2 RETURNING *',
+      [status, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/bookings/:id/notes', verifyToken, async (req, res) => {
+  try {
+    const { admin_notes } = req.body;
+    const result = await query(
+      'UPDATE bookings SET admin_notes=$1 WHERE id=$2 RETURNING *',
+      [admin_notes, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/bookings/:id', verifyToken, async (req, res) => {
+  try {
+    await query('DELETE FROM bookings WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -499,15 +581,17 @@ app.get('/api/analytics', verifyToken, async (req, res) => {
 app.get('/api/activity', verifyToken, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
-    const [enquiries, visits, reviews] = await Promise.all([
+    const [enquiries, visits, reviews, bookings] = await Promise.all([
       query(`SELECT id, 'enquiry' AS type, name AS title, COALESCE(interest,'') AS subtitle, preferred_contact, phone, email, status, created_at FROM enquiries ORDER BY created_at DESC LIMIT $1`, [limit]),
       query(`SELECT id, 'visit' AS type, path AS title, COALESCE(referrer,'') AS subtitle, ip, user_agent, screen_width, created_at FROM page_visits ORDER BY created_at DESC LIMIT $1`, [limit]),
-      query(`SELECT id, 'review' AS type, name AS title, COALESCE(review,'') AS subtitle, rating, created_at FROM public_reviews ORDER BY created_at DESC LIMIT $1`, [limit]),
+      query(`SELECT id, 'review' AS type, name AS title, COALESCE(quote,'') AS subtitle, stars AS rating, created_at FROM public_reviews ORDER BY created_at DESC LIMIT $1`, [limit]),
+      query(`SELECT id, 'booking' AS type, name AS title, COALESCE(property_title,'') AS subtitle, preferred_contact, phone, email, status, viewing_date, created_at FROM bookings ORDER BY created_at DESC LIMIT $1`, [limit]),
     ]);
     const all = [
       ...enquiries.rows,
       ...visits.rows,
       ...reviews.rows,
+      ...bookings.rows,
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, limit);
     res.json(all);
   } catch (e) {

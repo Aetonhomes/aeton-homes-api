@@ -108,6 +108,21 @@ export async function initDB() {
     ALTER TABLE enquiries ADD COLUMN IF NOT EXISTS preferred_contact TEXT DEFAULT 'call';
     ALTER TABLE enquiries ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'website';
 
+    CREATE TABLE IF NOT EXISTS bookings (
+      id SERIAL PRIMARY KEY,
+      property_title TEXT DEFAULT '',
+      property_id INTEGER DEFAULT NULL,
+      name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      email TEXT DEFAULT '',
+      preferred_contact TEXT DEFAULT 'call',
+      viewing_date TEXT DEFAULT '',
+      message TEXT DEFAULT '',
+      status TEXT DEFAULT 'new',
+      admin_notes TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS page_visits (
       id SERIAL PRIMARY KEY,
       ip TEXT DEFAULT '',
@@ -136,6 +151,8 @@ export async function initDB() {
   await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT false`);
   await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true`);
   await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE enquiries ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT ''`);
+  await query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS admin_notes TEXT DEFAULT ''`);
 
   console.log('✅ Database tables ready');
 }
