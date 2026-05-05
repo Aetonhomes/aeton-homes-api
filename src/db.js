@@ -117,6 +117,7 @@ export async function initDB() {
   // Schema migrations — safe to run on existing DB
   await query(`ALTER TABLE public_reviews ALTER COLUMN approved SET DEFAULT true`);
   await query(`UPDATE public_reviews SET approved=true WHERE approved=false`);
+  await query(`ALTER TABLE properties ADD COLUMN IF NOT EXISTS property_videos JSONB DEFAULT '[]'`);
 
   console.log('✅ Database tables ready');
 }

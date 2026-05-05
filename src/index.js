@@ -112,14 +112,14 @@ app.post('/api/properties', verifyToken, async (req, res) => {
     const {
       title, subtitle = '', description = '', price, price_suffix = '',
       type = 'sale', beds = 0, baths = 0, sqm = 0, location = '',
-      image_url = '', images = [], featured = false, active = true, order_index = 0
+      image_url = '', images = [], property_videos = [], featured = false, active = true, order_index = 0
     } = req.body;
     const result = await query(
       `INSERT INTO properties
-        (title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, images, featured, active, order_index)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        (title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, images, property_videos, featured, active, order_index)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        RETURNING *`,
-      [title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, JSON.stringify(images), featured, active, order_index]
+      [title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, JSON.stringify(images), JSON.stringify(property_videos), featured, active, order_index]
     );
     res.status(201).json(result.rows[0]);
   } catch (e) {
@@ -131,15 +131,15 @@ app.put('/api/properties/:id', verifyToken, async (req, res) => {
   try {
     const {
       title, subtitle, description, price, price_suffix,
-      type, beds, baths, sqm, location, image_url, images = [], featured, active, order_index
+      type, beds, baths, sqm, location, image_url, images = [], property_videos = [], featured, active, order_index
     } = req.body;
     const result = await query(
       `UPDATE properties SET
         title=$1, subtitle=$2, description=$3, price=$4, price_suffix=$5,
         type=$6, beds=$7, baths=$8, sqm=$9, location=$10, image_url=$11,
-        images=$12, featured=$13, active=$14, order_index=$15
-       WHERE id=$16 RETURNING *`,
-      [title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, JSON.stringify(images), featured, active, order_index, req.params.id]
+        images=$12, property_videos=$13, featured=$14, active=$15, order_index=$16
+       WHERE id=$17 RETURNING *`,
+      [title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, JSON.stringify(images), JSON.stringify(property_videos), featured, active, order_index, req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
