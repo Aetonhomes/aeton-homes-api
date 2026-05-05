@@ -40,9 +40,20 @@ export async function initDB() {
       sqm INTEGER DEFAULT 0,
       location TEXT DEFAULT '',
       image_url TEXT DEFAULT '',
+      images JSONB DEFAULT '[]',
       featured BOOLEAN DEFAULT false,
       active BOOLEAN DEFAULT true,
       order_index INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS public_reviews (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT DEFAULT '',
+      quote TEXT NOT NULL,
+      stars INTEGER DEFAULT 5,
+      approved BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 

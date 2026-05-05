@@ -112,14 +112,14 @@ app.post('/api/properties', verifyToken, async (req, res) => {
     const {
       title, subtitle = '', description = '', price, price_suffix = '',
       type = 'sale', beds = 0, baths = 0, sqm = 0, location = '',
-      image_url = '', featured = false, active = true, order_index = 0
+      image_url = '', images = [], featured = false, active = true, order_index = 0
     } = req.body;
     const result = await query(
       `INSERT INTO properties
-        (title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, featured, active, order_index)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        (title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, images, featured, active, order_index)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        RETURNING *`,
-      [title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, featured, active, order_index]
+      [title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, JSON.stringify(images), featured, active, order_index]
     );
     res.status(201).json(result.rows[0]);
   } catch (e) {
@@ -131,15 +131,15 @@ app.put('/api/properties/:id', verifyToken, async (req, res) => {
   try {
     const {
       title, subtitle, description, price, price_suffix,
-      type, beds, baths, sqm, location, image_url, featured, active, order_index
+      type, beds, baths, sqm, location, image_url, images = [], featured, active, order_index
     } = req.body;
     const result = await query(
       `UPDATE properties SET
         title=$1, subtitle=$2, description=$3, price=$4, price_suffix=$5,
         type=$6, beds=$7, baths=$8, sqm=$9, location=$10, image_url=$11,
-        featured=$12, active=$13, order_index=$14
-       WHERE id=$15 RETURNING *`,
-      [title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, featured, active, order_index, req.params.id]
+        images=$12, featured=$13, active=$14, order_index=$15
+       WHERE id=$16 RETURNING *`,
+      [title, subtitle, description, price, price_suffix, type, beds, baths, sqm, location, image_url, JSON.stringify(images), featured, active, order_index, req.params.id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
@@ -384,6 +384,70 @@ app.put('/api/enquiries/:id/status', verifyToken, async (req, res) => {
 app.delete('/api/enquiries/:id', verifyToken, async (req, res) => {
   try {
     await query('DELETE FROM enquiries WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Public Reviews ────────────────────────────────────────────────────────────
+// Public: submit a review
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { name, email = '', quote, stars = 5 } = req.body;
+    if (!name || !quote) return res.status(400).json({ error: 'name and quote required' });
+    if (stars < 1 || stars > 5) return res.status(400).json({ error: 'stars must be 1-5' });
+    const result = await query(
+      `INSERT INTO public_reviews (name, email, quote, stars) VALUES ($1,$2,$3,$4) RETURNING id,name,stars,created_at`,
+      [name, email, quote, stars]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Public: get approved reviews
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const result = await query(
+      'SELECT id,name,quote,stars,created_at FROM public_reviews WHERE approved=true ORDER BY created_at DESC'
+    );
+    res.json(result.rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: get all reviews (including unapproved)
+app.get('/api/reviews/all', verifyToken, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM public_reviews ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: approve/reject a review
+app.put('/api/reviews/:id/approve', verifyToken, async (req, res) => {
+  try {
+    const { approved } = req.body;
+    const result = await query(
+      'UPDATE public_reviews SET approved=$1 WHERE id=$2 RETURNING *',
+      [approved, req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin: delete a review
+app.delete('/api/reviews/:id', verifyToken, async (req, res) => {
+  try {
+    await query('DELETE FROM public_reviews WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
