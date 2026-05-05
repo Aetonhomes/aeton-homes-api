@@ -391,14 +391,14 @@ app.delete('/api/enquiries/:id', verifyToken, async (req, res) => {
 });
 
 // ── Public Reviews ────────────────────────────────────────────────────────────
-// Public: submit a review
+// Public: submit a review — auto-approved, goes live immediately
 app.post('/api/reviews', async (req, res) => {
   try {
     const { name, email = '', quote, stars = 5 } = req.body;
     if (!name || !quote) return res.status(400).json({ error: 'name and quote required' });
     if (stars < 1 || stars > 5) return res.status(400).json({ error: 'stars must be 1-5' });
     const result = await query(
-      `INSERT INTO public_reviews (name, email, quote, stars) VALUES ($1,$2,$3,$4) RETURNING id,name,stars,created_at`,
+      `INSERT INTO public_reviews (name, email, quote, stars, approved) VALUES ($1,$2,$3,$4,true) RETURNING id,name,stars,created_at`,
       [name, email, quote, stars]
     );
     res.status(201).json(result.rows[0]);
@@ -407,11 +407,11 @@ app.post('/api/reviews', async (req, res) => {
   }
 });
 
-// Public: get approved reviews
+// Public: get all reviews (no moderation)
 app.get('/api/reviews', async (req, res) => {
   try {
     const result = await query(
-      'SELECT id,name,quote,stars,created_at FROM public_reviews WHERE approved=true ORDER BY created_at DESC'
+      'SELECT id,name,quote,stars,created_at FROM public_reviews ORDER BY created_at DESC'
     );
     res.json(result.rows);
   } catch (e) {
@@ -419,26 +419,11 @@ app.get('/api/reviews', async (req, res) => {
   }
 });
 
-// Admin: get all reviews (including unapproved)
+// Admin: get all reviews
 app.get('/api/reviews/all', verifyToken, async (req, res) => {
   try {
     const result = await query('SELECT * FROM public_reviews ORDER BY created_at DESC');
     res.json(result.rows);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Admin: approve/reject a review
-app.put('/api/reviews/:id/approve', verifyToken, async (req, res) => {
-  try {
-    const { approved } = req.body;
-    const result = await query(
-      'UPDATE public_reviews SET approved=$1 WHERE id=$2 RETURNING *',
-      [approved, req.params.id]
-    );
-    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
-    res.json(result.rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -449,6 +434,62 @@ app.delete('/api/reviews/:id', verifyToken, async (req, res) => {
   try {
     await query('DELETE FROM public_reviews WHERE id=$1', [req.params.id]);
     res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Visit Tracking ────────────────────────────────────────────────────────────
+app.post('/api/track', async (req, res) => {
+  try {
+    const { path = '/', referrer = '', screen_width = 0 } = req.body;
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim();
+    const user_agent = req.headers['user-agent'] || '';
+    await query(
+      `INSERT INTO page_visits (ip, path, user_agent, referrer, screen_width) VALUES ($1,$2,$3,$4,$5)`,
+      [ip, path, user_agent, referrer, screen_width]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: true }); // never fail tracking
+  }
+});
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+app.get('/api/analytics', verifyToken, async (req, res) => {
+  try {
+    const [
+      totalVisits, todayVisits, weekVisits, monthVisits,
+      byPage, byDay, recent,
+      enquiryCount, reviewCount, propertyCount
+    ] = await Promise.all([
+      query(`SELECT COUNT(*) AS n FROM page_visits`),
+      query(`SELECT COUNT(*) AS n FROM page_visits WHERE created_at >= NOW() - INTERVAL '1 day'`),
+      query(`SELECT COUNT(*) AS n FROM page_visits WHERE created_at >= NOW() - INTERVAL '7 days'`),
+      query(`SELECT COUNT(*) AS n FROM page_visits WHERE created_at >= NOW() - INTERVAL '30 days'`),
+      query(`SELECT path, COUNT(*) AS n FROM page_visits GROUP BY path ORDER BY n DESC LIMIT 10`),
+      query(`SELECT DATE(created_at) AS day, COUNT(*) AS n FROM page_visits WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY day ORDER BY day ASC`),
+      query(`SELECT ip, path, referrer, screen_width, user_agent, created_at FROM page_visits ORDER BY created_at DESC LIMIT 50`),
+      query(`SELECT COUNT(*) AS n FROM enquiries`),
+      query(`SELECT COUNT(*) AS n FROM public_reviews`),
+      query(`SELECT COUNT(*) AS n FROM properties WHERE active=true`),
+    ]);
+    res.json({
+      visits: {
+        total: parseInt(totalVisits.rows[0].n),
+        today: parseInt(todayVisits.rows[0].n),
+        week: parseInt(weekVisits.rows[0].n),
+        month: parseInt(monthVisits.rows[0].n),
+      },
+      byPage: byPage.rows,
+      byDay: byDay.rows,
+      recent: recent.rows,
+      counts: {
+        enquiries: parseInt(enquiryCount.rows[0].n),
+        reviews: parseInt(reviewCount.rows[0].n),
+        properties: parseInt(propertyCount.rows[0].n),
+      },
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

@@ -102,6 +102,21 @@ export async function initDB() {
       status TEXT DEFAULT 'new',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS page_visits (
+      id SERIAL PRIMARY KEY,
+      ip TEXT DEFAULT '',
+      path TEXT DEFAULT '/',
+      user_agent TEXT DEFAULT '',
+      referrer TEXT DEFAULT '',
+      screen_width INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
+
+  // Schema migrations — safe to run on existing DB
+  await query(`ALTER TABLE public_reviews ALTER COLUMN approved SET DEFAULT true`);
+  await query(`UPDATE public_reviews SET approved=true WHERE approved=false`);
+
   console.log('✅ Database tables ready');
 }
