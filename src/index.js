@@ -345,12 +345,12 @@ app.delete('/api/videos/:id', verifyToken, async (req, res) => {
 // ── Enquiries ─────────────────────────────────────────────────────────────────
 app.post('/api/enquiries', async (req, res) => {
   try {
-    const { name, email, phone = '', interest = '', message = '' } = req.body;
-    if (!name || !email) return res.status(400).json({ error: 'name and email required' });
+    const { name, email = '', phone = '', interest = '', message = '', preferred_contact = 'call', source = 'website' } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
     const result = await query(
-      `INSERT INTO enquiries (name, email, phone, interest, message)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [name, email, phone, interest, message]
+      `INSERT INTO enquiries (name, email, phone, interest, message, preferred_contact, source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [name, email, phone, interest, message, preferred_contact, source]
     );
     res.status(201).json(result.rows[0]);
   } catch (e) {
@@ -490,6 +490,26 @@ app.get('/api/analytics', verifyToken, async (req, res) => {
         properties: parseInt(propertyCount.rows[0].n),
       },
     });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Activity Log ──────────────────────────────────────────────────────────────
+app.get('/api/activity', verifyToken, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const [enquiries, visits, reviews] = await Promise.all([
+      query(`SELECT id, 'enquiry' AS type, name AS title, COALESCE(interest,'') AS subtitle, preferred_contact, phone, email, status, created_at FROM enquiries ORDER BY created_at DESC LIMIT $1`, [limit]),
+      query(`SELECT id, 'visit' AS type, path AS title, COALESCE(referrer,'') AS subtitle, ip, user_agent, screen_width, created_at FROM page_visits ORDER BY created_at DESC LIMIT $1`, [limit]),
+      query(`SELECT id, 'review' AS type, name AS title, COALESCE(review,'') AS subtitle, rating, created_at FROM public_reviews ORDER BY created_at DESC LIMIT $1`, [limit]),
+    ]);
+    const all = [
+      ...enquiries.rows,
+      ...visits.rows,
+      ...reviews.rows,
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, limit);
+    res.json(all);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

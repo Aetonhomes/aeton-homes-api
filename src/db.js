@@ -95,13 +95,22 @@ export async function initDB() {
     CREATE TABLE IF NOT EXISTS enquiries (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
-      email TEXT NOT NULL,
+      email TEXT DEFAULT '',
       phone TEXT DEFAULT '',
       interest TEXT DEFAULT '',
       message TEXT DEFAULT '',
+      preferred_contact TEXT DEFAULT 'call',
       status TEXT DEFAULT 'new',
+      source TEXT DEFAULT 'website',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    -- Migration: add columns if upgrading
+    DO $ BEGIN
+      BEGIN ALTER TABLE enquiries ADD COLUMN preferred_contact TEXT DEFAULT 'call'; EXCEPTION WHEN duplicate_column THEN NULL; END;
+      BEGIN ALTER TABLE enquiries ADD COLUMN source TEXT DEFAULT 'website'; EXCEPTION WHEN duplicate_column THEN NULL; END;
+      BEGIN ALTER TABLE enquiries ALTER COLUMN email DROP NOT NULL; EXCEPTION WHEN others THEN NULL; END;
+    END $;
 
     CREATE TABLE IF NOT EXISTS page_visits (
       id SERIAL PRIMARY KEY,
