@@ -49,7 +49,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 // ── Auth ──────────────────────────────────────────────────────────────────────
 app.post('/api/auth/login', (req, res) => {
   const { password } = req.body;
-  const adminPassword = process.env.ADMIN_PASSWORD || 'aeton2024';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Alex2026';
   if (password !== adminPassword) {
     return res.status(401).json({ error: 'Invalid password' });
   }
