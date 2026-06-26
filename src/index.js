@@ -619,9 +619,9 @@ app.get('/api/activity', verifyToken, async (req, res) => {
 app.get('/sitemap.xml', async (req, res) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const props = await query(`SELECT id, title, updated_at, created_at FROM properties WHERE active = true ORDER BY created_at DESC`);
+    const props = await query(`SELECT id, title, created_at FROM properties WHERE active = true ORDER BY created_at DESC`);
     const propertyUrls = props.rows.map(p => {
-      const lastmod = (p.updated_at || p.created_at || new Date()).toISOString().slice(0, 10);
+      const lastmod = (p.created_at ? new Date(p.created_at) : new Date()).toISOString().slice(0, 10);
       return `  <url>\n    <loc>https://aetonhomes.co.ke/#property-${p.id}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.85</priority>\n  </url>`;
     }).join('\n');
 
