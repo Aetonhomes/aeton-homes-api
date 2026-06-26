@@ -615,6 +615,64 @@ app.get('/api/activity', verifyToken, async (req, res) => {
   }
 });
 
+// ── Dynamic Sitemap ───────────────────────────────────────────────────────────
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const props = await query(`SELECT id, title, updated_at, created_at FROM properties WHERE active = true ORDER BY created_at DESC`);
+    const propertyUrls = props.rows.map(p => {
+      const lastmod = (p.updated_at || p.created_at || new Date()).toISOString().slice(0, 10);
+      return `  <url>\n    <loc>https://aetonhomes.co.ke/#property-${p.id}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.85</priority>\n  </url>`;
+    }).join('\n');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://aetonhomes.co.ke/</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://aetonhomes.co.ke/og-image.png</image:loc>
+      <image:title>Aeton Homes — Luxury Real Estate Nairobi Kenya</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://aetonhomes.co.ke/#properties</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://aetonhomes.co.ke/#contact</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://aetonhomes.co.ke/videos</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+${propertyUrls}
+</urlset>`;
+
+    res.set('Content-Type', 'application/xml');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(xml);
+  } catch (e) {
+    res.status(500).send('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>');
+  }
+});
+
+// ── Robots.txt ────────────────────────────────────────────────────────────────
+app.get('/robots.txt', (req, res) => {
+  res.set('Content-Type', 'text/plain');
+  res.send(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/\nDisallow: /api/\nCrawl-delay: 1\n\nSitemap: https://aetonhomes.co.ke/sitemap.xml\n`);
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 initDB()
   .then(() => {
